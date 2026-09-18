@@ -1,0 +1,20 @@
+{
+  "name": "Códigos",
+  "short_name": "Códigos",
+  "description": "Lector y generador personal de códigos QR y de barras. Sin publicidad, sin cuentas, todo local.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0f17",
+  "theme_color": "#0b0f17",
+  "lang": "es",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon.png", "sizes": "1024x1024", "type": "image/png" }
+  ],
+  "shortcuts": [
+    { "name": "Escanear", "url": "./index.html?view=scan" },
+    { "name": "Crear código", "url": "./index.html?view=create" },
+    { "name": "Biblioteca", "url": "./index.html?view=lib" }
+  ]
+}
