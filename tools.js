@@ -39,8 +39,8 @@ const Tools = {
   },
   convert() {
     this.pickItem('Elige el código a convertir', it => {
-      const compat = ['QR'].concat(GEN_BAR.filter(f => validateBar(f, it.data).ok));
-      openSheet('Convertir a…', `<div class="pre mono">${esc(it.data)}</div><p class="lead">Formatos compatibles con este contenido:</p><div class="list">${compat.filter(f => f !== it.format).map(f => `<button class="act" data-f="${f}"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></svg><div class="b"><div>${fmtName(f)}</div><div class="s">${esc(FORMATS[f].help)}</div></div></button>`).join('') || '<div class="empty">No hay otros formatos compatibles con este contenido.</div>'}</div>`, b => $$('.act', b).forEach(a => a.onclick = () => { closeSheet(); showView('create'); Creator.loadText(it.data, a.dataset.f === 'QR' ? 'QR' : a.dataset.f); }));
+      const compat = ['QR', 'DATA_MATRIX', 'PDF_417', 'AZTEC'].concat(GEN_BAR.filter(f => validateBar(f, it.data).ok));
+      openSheet('Convertir a…', `<div class="pre mono">${esc(it.data)}</div><p class="lead">Formatos compatibles con este contenido:</p><div class="list">${compat.filter(f => f !== it.format).map(f => `<button class="act" data-f="${f}"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></svg><div class="b"><div>${fmtName(f)}</div><div class="s">${esc(FORMATS[f].help)}</div></div></button>`).join('') || '<div class="empty">No hay otros formatos compatibles con este contenido.</div>'}</div>`, b => $$('.act', b).forEach(a => a.onclick = () => { closeSheet(); showView('create'); Creator.loadText(it.data, a.dataset.f); }));
     });
   },
   compare() {

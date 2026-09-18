@@ -188,21 +188,35 @@ const canvasBlob = (cv, type = 'image/png') => new Promise(r => cv.toBlob(r, typ
 
 // ---------- decodificación ----------
 const Decoder = {
-  native: 'BarcodeDetector' in window ? null : false, zx: null,
+  native: 'BarcodeDetector' in window ? null : false, worker: null, pending: new Map(), seq: 0,
   async init() {
     if (this.native === null) { try { const f = await BarcodeDetector.getSupportedFormats(); this.native = f.length ? new BarcodeDetector({formats: f}) : false; } catch { this.native = false; } }
-    if (!this.zx) { const hints = new Map(); hints.set(ZXing.DecodeHintType.TRY_HARDER, true); this.zx = new ZXing.BrowserMultiFormatReader(hints); }
+    if (this.worker === null || this.worker === undefined) {
+      try {
+        this.worker = new Worker('worker.js');
+        this.worker.onmessage = e => { const p = this.pending.get(e.data.id); if (p) { this.pending.delete(e.data.id); p(e.data.res); } };
+        this.worker.onerror = () => { this.worker = false; this.pending.forEach(p => p(null)); this.pending.clear(); };
+      } catch { this.worker = false; }
+    }
   },
+  // Decodifica un ImageData (en worker si existe; si no, en el hilo principal)
+  decodeData(imgData, opts) {
+    if (this.worker) return new Promise(res => { const id = ++this.seq; this.pending.set(id, res); const buf = imgData.data.buffer; this.worker.postMessage({id, buf, w: imgData.width, h: imgData.height, opts}, [buf]); });
+    return Promise.resolve(ZXCore.decodeImageData(imgData.data, imgData.width, imgData.height, opts));
+  },
+  fmtOf(zx) { return ZX2APP[zx] || zx; },
   // decodifica una imagen (HTMLImageElement/canvas) y devuelve [{format,text}] con multi-detección
   async decodeImage(img) {
     await this.init(); const out = [], seen = new Set(); const push = (f, t) => { const k = f + '|' + t; if (!seen.has(k)) { seen.add(k); out.push({format: f, text: t}); } };
     if (this.native) { try { (await this.native.detect(img)).forEach(b => push(BD2APP[b.format] || b.format.toUpperCase(), b.rawValue)); } catch {} }
     if (out.length) return out;
     const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+    const cv = document.createElement('canvas'), ctx = cv.getContext('2d', {willReadFrequently: true});
     const tryCrop = async (x, y, w, h, scale = 1) => {
-      const cv = document.createElement('canvas'); cv.width = Math.round(w * scale); cv.height = Math.round(h * scale);
-      cv.getContext('2d').drawImage(img, x, y, w, h, 0, 0, cv.width, cv.height);
-      try { const r = await this.zx.decodeFromImageUrl(cv.toDataURL('image/png')); push(ZX2APP[ZXing.BarcodeFormat[r.getBarcodeFormat()]] || String(r.getBarcodeFormat()), r.getText()); } catch {}
+      cv.width = Math.max(1, Math.round(w * scale)); cv.height = Math.max(1, Math.round(h * scale));
+      ctx.drawImage(img, x, y, w, h, 0, 0, cv.width, cv.height);
+      const r = await this.decodeData(ctx.getImageData(0, 0, cv.width, cv.height), {invert: true, rotate: true});
+      if (r) push(this.fmtOf(r.format), r.text);
     };
     const scale = Math.min(1, 1600 / Math.max(W, H));
     await tryCrop(0, 0, W, H, scale);
@@ -213,3 +227,25 @@ const Decoder = {
     return out;
   }
 };
+
+// ---------- generación 2D adicional (Data Matrix, PDF417, Aztec) vía bwip-js, carga diferida ----------
+const BWIP = {DATA_MATRIX: 'datamatrix', PDF_417: 'pdf417', AZTEC: 'azteccode'};
+let bwipLoading = null;
+function loadBwip() {
+  if (window.bwipjs) return Promise.resolve();
+  if (!bwipLoading) bwipLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'vendor/bwip.min.js'; s.onload = res; s.onerror = () => { bwipLoading = null; rej(new Error('No se pudo cargar el generador 2D')); }; document.head.appendChild(s); });
+  return bwipLoading;
+}
+// Devuelve canvas (o string SVG) del símbolo 2D; o: {fg,bg,trans,size,margin}
+async function render2D(fmt, text, o = {}, target = 'canvas') {
+  await loadBwip();
+  const opts = {bcid: BWIP[fmt], text, scale: 1, padding: (o.margin ?? 3) * 2, barcolor: (o.fg || '#111111').replace('#', ''), includetext: false};
+  if (!o.trans) opts.backgroundcolor = (o.bg || '#ffffff').replace('#', '');
+  if (fmt === 'PDF_417') opts.columns = Math.min(10, Math.max(2, Math.ceil(text.length / 30)));
+  if (target === 'svg') { const svg = bwipjs.toSVG(opts); return svg.replace(/<svg([^>]*)>/, (m, a) => `<svg${a.replace(/ (width|height)="[^"]*"/g, '')} width="${o.size || 512}" height="${o.size || 512}">`); }
+  const tmp = document.createElement('canvas'); bwipjs.toCanvas(tmp, opts);
+  const size = o.size || 512; const cv = document.createElement('canvas'); const ratio = tmp.width / tmp.height;
+  cv.width = size; cv.height = Math.round(size / ratio); const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+  if (!o.trans) { ctx.fillStyle = o.bg || '#fff'; ctx.fillRect(0, 0, cv.width, cv.height); }
+  ctx.drawImage(tmp, 0, 0, cv.width, cv.height); cv.dataset.modules = tmp.width; return cv;
+}

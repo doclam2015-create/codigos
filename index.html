@@ -84,7 +84,7 @@ main{max-width:760px;margin:0 auto;padding:14px;}
 .seg button.on{background:var(--panel);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.2);}
 .chips{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
 .chips::-webkit-scrollbar{display:none;}
-.chip{flex:none;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:8px 13px;font-size:13px;font-weight:700;color:var(--muted);}
+.chip{flex:none;min-height:40px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:8px 13px;font-size:13px;font-weight:700;color:var(--muted);}
 .chip.on{background:var(--accent);color:var(--accent-ink);border-color:transparent;}
 .chip svg{width:14px;height:14px;vertical-align:-2px;margin-right:4px;}
 .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.3px;background:rgba(255,255,255,.07);color:var(--muted);text-transform:uppercase;}
@@ -246,6 +246,7 @@ details.help summary{padding:10px 0;font-size:13px;font-weight:700;cursor:pointe
 details.help .note{padding-bottom:10px;}
 kbd{background:var(--bg2);border:1px solid var(--line2);border-radius:5px;padding:1px 5px;font-size:11px;font-family:ui-monospace,Menlo,monospace;}
 
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 /* print */
 #printArea{display:none;}
 @media print{
@@ -268,8 +269,8 @@ kbd{background:var(--bg2);border:1px solid var(--line2);border-radius:5px;paddin
 
 <header>
   <h1><span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#2a1d05" stroke-width="2.4" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3M21 14v3M14 21h7M17 17h1"/></svg></span>Códigos<small id="verTag">QR · barras</small></h1>
-  <button class="hbtn" id="btnTheme" title="Tema"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
-  <button class="hbtn" id="btnSettings" title="Ajustes"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  <button class="hbtn" id="btnTheme" aria-label="Cambiar tema" title="Tema"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+  <button class="hbtn" id="btnSettings" aria-label="Ajustes" title="Ajustes"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
 </header>
 
 <main>
@@ -286,17 +287,17 @@ kbd{background:var(--bg2);border:1px solid var(--line2);border-radius:5px;paddin
     <div class="frame"><i></i><i></i><i></i><i></i><div class="line"></div></div>
     <div class="top hidden" id="camTop">
       <div class="row">
-        <button class="cbtn" id="btnTorch" title="Linterna"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></button>
-        <button class="cbtn" id="btnPause" title="Pausar"><svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
+        <button class="cbtn" id="btnTorch" aria-label="Linterna" title="Linterna"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></button>
+        <button class="cbtn" id="btnPause" aria-label="Pausar lectura" title="Pausar"><svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
       </div>
       <div class="row">
-        <button class="cbtn" id="btnCont" title="Lectura continua"><svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
-        <button class="cbtn" id="btnFlip" title="Cambiar cámara"><svg viewBox="0 0 24 24"><path d="M20 4h-3.2l-1.8-2H9L7.2 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><path d="M15 11a3 3 0 1 1-6 0"/><path d="M12 8v3M10 10l2 2 2-2"/></svg></button>
-        <button class="cbtn" id="btnStop" title="Cerrar cámara"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        <button class="cbtn" id="btnCont" aria-label="Lectura continua" title="Lectura continua"><svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
+        <button class="cbtn" id="btnFlip" aria-label="Cambiar cámara" title="Cambiar cámara"><svg viewBox="0 0 24 24"><path d="M20 4h-3.2l-1.8-2H9L7.2 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><path d="M15 11a3 3 0 1 1-6 0"/><path d="M12 8v3M10 10l2 2 2-2"/></svg></button>
+        <button class="cbtn" id="btnStop" aria-label="Cerrar cámara" title="Cerrar cámara"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
     </div>
     <div class="status hidden" id="camStatus">Buscando código…</div>
-    <div class="bottom hidden" id="camBottom"><span class="z">1.0×</span><input type="range" id="zoom" min="1" max="1" step="0.1" value="1"><span class="z" id="zoomV">1.0×</span></div>
+    <div class="bottom hidden" id="camBottom"><span class="z">1.0×</span><input type="range" id="zoom" aria-label="Zoom" min="1" max="1" step="0.1" value="1"><span class="z" id="zoomV">1.0×</span></div>
   </div>
   <div class="btns">
     <button class="btn" id="btnPickImg"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Desde imagen</button>
@@ -317,6 +318,7 @@ kbd{background:var(--bg2);border:1px solid var(--line2);border-radius:5px;paddin
 
   <div id="cQR">
     <div class="chips" id="qrTypes"></div>
+    <div class="card" style="margin-top:12px"><label class="f">Simbología 2D</label><select id="qrSym" aria-label="Simbología"><option value="QR">QR Code</option><option value="DATA_MATRIX">Data Matrix</option><option value="PDF_417">PDF417</option><option value="AZTEC">Aztec</option></select><div class="note" id="qrSymHelp" style="margin-top:6px"></div></div>
     <div class="card" style="margin-top:12px"><div id="qrForm"></div></div>
     <div class="card" style="margin-top:12px">
       <h2>Vista previa <span class="sub" id="qrInfo"></span></h2>
@@ -386,7 +388,7 @@ kbd{background:var(--bg2);border:1px solid var(--line2);border-radius:5px;paddin
   <div class="seg" id="segLib"><button class="on" data-k="all">Todos</button><button data-k="scan">Leídos</button><button data-k="create">Creados</button><button data-k="fav">★</button><button data-k="trash">Papelera</button></div>
   <div class="row">
     <input id="libQ" placeholder="Buscar por contenido, nombre, nota, etiqueta o fecha…" class="grow">
-    <button class="hbtn" id="libSelMode" title="Seleccionar"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></button>
+    <button class="hbtn" id="libSelMode" aria-label="Seleccionar varios" title="Seleccionar"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></button>
   </div>
   <div class="chips" id="libFilters"></div>
   <div class="row">
@@ -478,7 +480,7 @@ kbd{background:var(--bg2);border:1px solid var(--line2);border-radius:5px;paddin
 </nav>
 
 <div class="sheet-bg" id="sheetBg"></div>
-<div class="sheet" id="sheet"><div class="hd"><h3 id="sheetTitle"></h3><button class="hbtn" id="sheetClose"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div><div class="bd" id="sheetBody"></div></div>
+<div class="sheet" id="sheet"><div class="hd"><h3 id="sheetTitle"></h3><button class="hbtn" id="sheetClose" aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div><div class="bd" id="sheetBody"></div></div>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div class="toast" id="toast"></div>
 <div id="printArea"></div>
@@ -486,6 +488,8 @@ kbd{background:var(--bg2);border:1px solid var(--line2);border-radius:5px;paddin
 <script src="vendor/qrcode.min.js"></script>
 <script src="vendor/jsbarcode.min.js"></script>
 <script src="vendor/zxing.min.js"></script>
+<script src="idb.js"></script>
+<script src="decode-core.js"></script>
 <script src="core.js"></script>
 <script src="codes.js"></script>
 <script src="scan.js"></script>

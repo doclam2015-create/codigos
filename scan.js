@@ -21,7 +21,7 @@ const Scanner = {
     else $('#camBottom').classList.add('hidden');
   },
   runLoop() {
-    const v = $('#video'); const cv = document.createElement('canvas'); let busy = false;
+    const v = $('#video'); const cv = document.createElement('canvas'); const ctx = cv.getContext('2d', {willReadFrequently: true}); let busy = false, n = 0;
     const tick = async () => {
       if (!this.active) return;
       if (!this.paused && !busy && v.readyState >= 2) {
@@ -29,15 +29,17 @@ const Scanner = {
         try {
           if (Decoder.native) { const r = await Decoder.native.detect(v); if (r.length) this.onHits(r.map(b => ({format: BD2APP[b.format] || b.format.toUpperCase(), text: b.rawValue}))); }
           else {
-            // ZXing: recortar región central para rendimiento
-            const W = v.videoWidth, H = v.videoHeight; const s = Math.min(W, H) * 0.85; const sx = (W - s) / 2, sy = (H - s) / 2;
-            cv.width = cv.height = Math.min(800, s); cv.getContext('2d').drawImage(v, sx, sy, s, s, 0, 0, cv.width, cv.height);
-            try { const r = await Decoder.zx.decodeFromImageUrl(cv.toDataURL('image/jpeg', 0.85)); this.onHits([{format: ZX2APP[ZXing.BarcodeFormat[r.getBarcodeFormat()]] || 'QR', text: r.getText()}]); } catch {}
+            // ZXing en Web Worker: región central (ancho completo, 70 % del alto) como ImageData, sin JPEG intermedio
+            const W = v.videoWidth, H = v.videoHeight; const sh = H * 0.7, sy = (H - sh) / 2;
+            const scale = Math.min(1, 960 / W); cv.width = Math.round(W * scale); cv.height = Math.round(sh * scale);
+            ctx.drawImage(v, 0, sy, W, sh, 0, 0, cv.width, cv.height); n++;
+            const r = await Decoder.decodeData(ctx.getImageData(0, 0, cv.width, cv.height), {invert: n % 3 === 0, rotate: n % 2 === 0});
+            if (r) this.onHits([{format: Decoder.fmtOf(r.format), text: r.text}]);
           }
         } catch {}
         busy = false;
       }
-      this.loop = setTimeout(tick, Decoder.native ? 120 : 250);
+      this.loop = setTimeout(tick, Decoder.native ? 120 : 60);
     };
     tick();
   },

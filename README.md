@@ -14,7 +14,7 @@ Aplicación web personal (PWA) para iPhone y iPad: lee, crea, organiza, exporta 
 
 **Resultado seguro** — muestra tipo y contenido exacto antes de actuar; verifica dígito verificador; advierte enlaces acortados, http, IP, homógrafos; nunca ejecuta acciones automáticamente (abrir enlace, llamar, correo, SMS, mapa, Wi-Fi, contacto .vcf, evento .ics, búsqueda de producto) — cada una pide confirmación y muestra el dominio completo.
 
-**Crear QR** — texto, enlace, Wi-Fi, contacto, teléfono, correo, SMS, ubicación, evento, app, ficha, personalizado. Colores, fondo transparente, forma de módulos, corrección de errores, margen, tamaño, título, contenido bajo el código, logo central. Verificación de legibilidad (decodifica lo generado). Exporta PNG, SVG, PDF/impresión, copiar, compartir.
+**Crear 2D** — QR, Data Matrix, PDF417 y Aztec. Texto, enlace, Wi-Fi, contacto, teléfono, correo, SMS, ubicación, evento, app, ficha, personalizado. Colores, fondo transparente, forma de módulos, corrección de errores, margen, tamaño, título, contenido bajo el código, logo central. Verificación de legibilidad (decodifica lo generado). Exporta PNG, SVG, PDF/impresión, copiar, compartir.
 
 **Crear código de barras** — EAN-13, EAN-8, UPC-A, UPC-E, Code 128, Code 39, ITF, ITF-14, Codabar, MSI, Pharmacode. Validación de longitud y caracteres, cálculo y comprobación de dígito verificador con corrección sugerida, ancho/alto/margen/orientación/color, texto legible.
 
@@ -28,4 +28,4 @@ Aplicación web personal (PWA) para iPhone y iPad: lee, crea, organiza, exporta 
 
 ## Estructura
 
-`index.html` · `core.js` (estado, ajustes, UI) · `codes.js` (formatos, validación, interpretación, generación, decodificación) · `scan.js` · `create.js` (incluye impresión) · `lib.js` · `batch.js` · `tools.js` · `sw.js` · `vendor/` (qrcode-generator, JsBarcode, ZXing — locales, sin CDN).
+`index.html` · `idb.js` (IndexedDB) · `decode-core.js` + `worker.js` (decodificación ZXing en Web Worker) · `core.js` (estado, ajustes, UI) · `codes.js` (formatos, validación, interpretación, generación, decodificación) · `scan.js` · `create.js` (incluye impresión) · `lib.js` · `batch.js` · `tools.js` · `sw.js` · `vendor/` (qrcode-generator, JsBarcode, ZXing, bwip-js — locales, sin CDN; bwip-js se carga solo al generar Data Matrix/PDF417/Aztec).

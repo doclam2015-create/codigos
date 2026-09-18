@@ -1,5 +1,5 @@
 /* Códigos — núcleo: estado, almacenamiento, UI compartida */
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -19,15 +19,26 @@ const DEFAULTS = {
 };
 const S = {
   settings: Object.assign({}, DEFAULTS, LS.get('settings', {})),
-  items: LS.get('items', []),
+  items: [],
   folders: LS.get('folders', []),
-  log: LS.get('log', []),
+  log: [],
   draft: LS.get('draft', null)
 };
 const saveSettings = () => LS.set('settings', S.settings);
-const saveItems = () => LS.set('items', S.items);
+// Biblioteca y registro viven en IndexedDB (sin límite práctico); escritura diferida
+let saveT;
+const saveItems = () => { clearTimeout(saveT); saveT = setTimeout(() => IDB.set('items', S.items), 150); };
 const saveFolders = () => LS.set('folders', S.folders);
-const logAction = (a, detail) => { if (!S.settings.keepLog) return; S.log.unshift({ts: Date.now(), a, d: String(detail).slice(0, 200)}); S.log = S.log.slice(0, 500); LS.set('log', S.log); };
+const logAction = (a, detail) => { if (!S.settings.keepLog) return; S.log.unshift({ts: Date.now(), a, d: String(detail).slice(0, 200)}); S.log = S.log.slice(0, 500); IDB.set('log', S.log); };
+async function loadStore() {
+  let items = await IDB.get('items');
+  if (items === undefined) { // migración desde localStorage (versión 1.0)
+    items = LS.get('items', []); if (items.length) { await IDB.set('items', items); LS.del('items'); }
+  }
+  S.items = Array.isArray(items) ? items : [];
+  S.log = (await IDB.get('log')) || LS.get('log', []);
+}
+window.addEventListener('pagehide', () => { if (saveT) { clearTimeout(saveT); IDB.set('items', S.items); } });
 
 // ---------- toast / undo ----------
 let toastT, undoFn = null;
@@ -199,7 +210,7 @@ function openSettings() {
     $('#setSearch').value = S.settings.searchEngine; $('#setSearch').onchange = e => { S.settings.searchEngine = e.target.value; saveSettings(); };
     $('#setProduct').value = S.settings.productLookup; $('#setProduct').onchange = e => { S.settings.productLookup = e.target.value; saveSettings(); };
     $('#setViewLog').onclick = () => openSheet('Registro de acciones', S.log.length ? `<div class="list">${S.log.map(l => `<div class="item"><div class="b"><div class="n">${esc(l.a)}</div><div class="c">${esc(l.d)}</div><div class="m"><span class="dt">${fmtDate(l.ts)}</span></div></div></div>`).join('')}</div>` : '<div class="empty">Sin registros. Actívalo en Ajustes → Historial.</div>');
-    $('#setClearLog').onclick = async () => { if (await ask('Borrar registro', 'Se eliminará el registro de acciones.', 'Borrar', true)) { S.log = []; LS.del('log'); toast('Registro borrado'); } };
+    $('#setClearLog').onclick = async () => { if (await ask('Borrar registro', 'Se eliminará el registro de acciones.', 'Borrar', true)) { S.log = []; IDB.del('log'); toast('Registro borrado'); } };
     $('#setPin').onclick = async () => {
       if (S.settings.pin) {
         const cur = await confirmDlg({title: 'PIN actual', input: {placeholder: '4 dígitos', type: 'password'}, ok: 'Continuar'});
@@ -230,8 +241,9 @@ function purgeTrash() {
   S.items = S.items.filter(i => !i.deleted || i.deleted > lim);
   if (S.items.length !== n) saveItems();
 }
-window.addEventListener('DOMContentLoaded', () => {
-  applyTheme(); Lock.init(); purgeTrash();
+window.addEventListener('DOMContentLoaded', async () => {
+  applyTheme(); Lock.init();
+  await loadStore(); purgeTrash();
   $('#verTag').textContent = 'v' + VERSION;
   const h = location.hash.replace('#', '');
   if (['scan', 'create', 'lib', 'batch', 'tools'].includes(h)) showView(h);

@@ -3,7 +3,7 @@ const Batch = {
   results: [], scanRes: [],
   init() {
     seg('#segBatch', k => { $('#bGen').classList.toggle('hidden', k !== 'gen'); $('#bScan').classList.toggle('hidden', k !== 'scan'); });
-    $('#bFmt').innerHTML = '<option value="QR">QR Code</option>' + GEN_BAR.map(f => `<option value="${f}">${FORMATS[f].name}</option>`).join('');
+    $('#bFmt').innerHTML = '<option value="QR">QR Code</option><option value="DATA_MATRIX">Data Matrix</option><option value="PDF_417">PDF417</option><option value="AZTEC">Aztec</option>' + GEN_BAR.map(f => `<option value="${f}">${FORMATS[f].name}</option>`).join('');
     $('#bList').oninput = () => $('#bCount').textContent = this.lines().length + ' líneas';
     $('#bPaste').onclick = async () => { try { $('#bList').value += (await navigator.clipboard.readText()); $('#bList').dispatchEvent(new Event('input')); } catch { toast('Sin acceso al portapapeles', 'bad'); } };
     $('#bClear').onclick = () => { $('#bList').value = ''; $('#bList').dispatchEvent(new Event('input')); };
@@ -19,12 +19,14 @@ const Batch = {
   },
   fillFolders() { const s = $('#bFolder'); s.innerHTML = '<option value="">Sin carpeta</option>' + S.folders.map(f => `<option>${esc(f)}</option>`).join(''); },
   lines() { return $('#bList').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => { const [v, ...t] = l.split('|'); return {value: v.trim(), title: t.join('|').trim()}; }); },
-  run() {
+  async run() {
     const lines = this.lines(); if (!lines.length) return toast('La lista está vacía', 'bad');
+    if (BWIP[$('#bFmt').value]) { try { await loadBwip(); } catch (e) { return toast(e.message, 'bad'); } }
     const fmt = $('#bFmt').value, fg = $('#bFg').value, ecl = $('#bEcl').value, text = $('#bText').value === '1'; const seen = new Set();
     this.results = lines.map((l, i) => {
       const r = {line: i + 1, input: l.value, title: l.title, ok: false};
       if (fmt === 'QR') { try { r.value = l.value; r.el = renderQR(l.value, {size: 300, margin: 2, fg, ecl}); r.svg = renderQR(l.value, {size: 300, margin: 2, fg, ecl}, 'svg'); r.ok = true; } catch (e) { r.err = 'No se pudo generar'; } }
+      else if (BWIP[fmt]) { try { r.value = l.value; const cv = document.createElement('canvas'); bwipjs.toCanvas(cv, {bcid: BWIP[fmt], text: l.value, scale: 3, padding: 6, barcolor: fg.replace('#', '')}); r.el = cv; r.ok = true; } catch (e) { r.err = 'No se pudo generar: ' + (e.message || e); } }
       else { const v = validateBar(fmt, l.value); if (v.ok) { r.value = v.value; r.el = renderBar(fmt, v.value, {width: 2, height: 70, margin: 6, fg, text}, 'svg'); r.ok = true; } else r.err = v.msg; }
       if (r.ok) { const k = fmt + '|' + r.value; if (seen.has(k)) r.dup = true; seen.add(k); if (S.items.some(x => !x.deleted && x.format === fmt && x.data === r.value)) r.inLib = true; }
       return r;
@@ -39,7 +41,7 @@ const Batch = {
   save() {
     const fmt = $('#bFmt').value, tags = $('#bTags').value.split(',').map(x => x.trim()).filter(Boolean), folder = $('#bFolder').value;
     const list = this.results.filter(r => r.ok && !r.dup); if (!list.length) return toast('Nada que guardar', 'bad');
-    list.forEach(r => Lib.persist(Lib.make('create', fmt, r.value, {name: r.title, tags, folder, style: fmt === 'QR' ? {fg: $('#bFg').value, ecl: $('#bEcl').value, margin: 2} : {fg: $('#bFg').value, text: $('#bText').value === '1'}}), true));
+    list.forEach(r => Lib.persist(Lib.make('create', fmt, r.value, {name: r.title, tags, folder, style: is2d(fmt) ? {fg: $('#bFg').value, ecl: $('#bEcl').value, margin: 2} : {fg: $('#bFg').value, text: $('#bText').value === '1'}}), true));
     toast(list.length + ' códigos guardados', 'ok'); logAction('Lote', list.length + ' códigos');
   },
   async exportAll() {

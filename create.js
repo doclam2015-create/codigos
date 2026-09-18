@@ -32,6 +32,7 @@ const Creator = {
     $('#qrLogoClr').onclick = () => { this.logo = null; $('#qrLogoClr').classList.add('hidden'); $('#qrLogoBtn').textContent = 'Elegir imagen…'; this.render(); };
     $('#barFmt').onchange = () => { $('#barFmtHelp').textContent = FORMATS[$('#barFmt').value].help; this.render(); };
     $('#barFmtHelp').textContent = FORMATS.EAN_13.help;
+    $('#qrSym').onchange = () => { const f = $('#qrSym').value; $('#qrSymHelp').textContent = f === 'QR' ? '' : FORMATS[f].help + ' Forma de módulos y logo solo aplican a QR.'; const isQR = f === 'QR'; ['#qrShape', '#qrEcl', '#qrLogoBtn'].forEach(x => $(x).disabled = !isQR); this.render(); };
     $('#barCalc').onclick = () => { const r = validateBar($('#barFmt').value, $('#barVal').value); if (r.fix) { $('#barVal').value = r.fix; } else if (r.ok && r.value) $('#barVal').value = r.value; this.render(); toast(r.msg, r.ok || r.fix ? 'ok' : 'bad'); };
     $('#barFromClip').onclick = async () => { try { $('#barVal').value = (await navigator.clipboard.readText()).trim(); this.render(); } catch { toast('Sin acceso al portapapeles', 'bad'); } };
     $('#cSave').onclick = () => this.save(); $('#cVerify').onclick = () => this.verify();
@@ -46,26 +47,29 @@ const Creator = {
     this.render();
   },
   qrText() { return QR_TYPES[this.qrType].build(Object.fromEntries(QR_TYPES[this.qrType].f.map(([id]) => [id, (this.vals[id] || '').trim()]))); },
+  sym() { return $('#qrSym').value; },
   qrOpts() { return {fg: $('#qrFg').value, bg: $('#qrBg').value, trans: $('#qrTrans').classList.contains('on'), size: +$('#qrSize').value, margin: +$('#qrMargin').value, shape: $('#qrShape').value, ecl: $('#qrEcl').value, logo: this.logo, title: $('#qrTitle').value.trim(), caption: $('#qrCaption').classList.contains('on')}; },
   barOpts() { return {width: +$('#barW').value, height: +$('#barH').value, margin: +$('#barM').value, rotate: +$('#barRot').value, fg: $('#barFg').value, bg: $('#barBg').value, text: $('#barText').classList.contains('on'), title: $('#barTitle').value.trim()}; },
   render() {
     clearTimeout(this.t); this.t = setTimeout(() => this._render(), 60);
   },
-  _render() {
+  async _render() {
     if (this.mode === 'qr') {
       const text = this.qrText(); const o = this.qrOpts(); const prev = $('#qrPrev'); prev.classList.remove('err');
       $('#qrCheck').innerHTML = '';
       if (!text) { prev.innerHTML = '<div class="empty">Completa el formulario para ver el código.</div>'; $('#qrInfo').textContent = ''; this.lastEl = null; return; }
       try {
-        const cv = renderQR(text, Object.assign({}, o, {size: 320}));
+        const sym = this.sym();
+        const cv = sym === 'QR' ? renderQR(text, Object.assign({}, o, {size: 320})) : await render2D(sym, text, Object.assign({}, o, {size: 320}));
         prev.innerHTML = ''; if (o.title) { const t = document.createElement('div'); t.className = 'cap ttl'; t.textContent = o.title; prev.appendChild(t); }
         cv.style.width = '100%'; cv.style.maxWidth = '300px'; prev.appendChild(cv);
         if (o.caption) { const c = document.createElement('div'); c.className = 'cap txt'; c.textContent = text.length > 80 ? text.slice(0, 77) + '…' : text; prev.appendChild(c); }
-        $('#qrInfo').textContent = `v${cv.dataset.version} · ${cv.dataset.modules}×${cv.dataset.modules} · ${new TextEncoder().encode(text).length} bytes`;
+        $('#qrInfo').textContent = (sym === 'QR' ? `v${cv.dataset.version} · ${cv.dataset.modules}×${cv.dataset.modules}` : fmtName(sym)) + ` · ${new TextEncoder().encode(text).length} bytes`;
         this.lastText = text; this.lastEl = cv;
         const warn = [];
         if (this.contrast(o.fg, o.trans ? '#ffffff' : o.bg) < 3) warn.push('Contraste bajo entre color y fondo: puede fallar la lectura.');
-        if (o.logo && o.ecl !== 'H') warn.push('Con logo se recomienda corrección de errores H.');
+        if (sym !== 'QR' && o.logo) warn.push('El logo solo se aplica a códigos QR.');
+        if (o.logo && sym === 'QR' && o.ecl !== 'H') warn.push('Con logo se recomienda corrección de errores H.');
         if (text.length > 1500) warn.push('Contenido muy largo: el código será denso y difícil de leer.');
         if (o.margin < 2) warn.push('Margen menor a 2 módulos: algunos lectores fallan sin zona silenciosa.');
         $('#qrCheck').innerHTML = warn.map(w => `<div class="msg warn" style="margin-bottom:6px">⚠︎ ${w}</div>`).join('');
@@ -89,19 +93,19 @@ const Creator = {
   contrast(a, b) { const L = h => { const c = [1, 3, 5].map(i => { let v = parseInt(h.slice(i, i + 2), 16) / 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; }; const [x, y] = [L(a), L(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); },
   // canvas final a resolución de exportación
   async finalCanvas() {
-    if (this.mode === 'qr') { const o = this.qrOpts(); const cv = renderQR(this.lastText, o); return composeCanvas(cv, {title: o.title, caption: o.caption ? this.lastText : '', trans: o.trans, bg: o.bg, fg: o.fg}); }
+    if (this.mode === 'qr') { const o = this.qrOpts(); const cv = this.sym() === 'QR' ? renderQR(this.lastText, o) : await render2D(this.sym(), this.lastText, o); return composeCanvas(cv, {title: o.title, caption: o.caption ? this.lastText : '', trans: o.trans, bg: o.bg, fg: o.fg}); }
     const o = this.barOpts(); const cv = renderBar($('#barFmt').value, this.lastText, Object.assign({}, o, {width: o.width * 2, height: o.height * 2, margin: o.margin * 2, fontSize: 32}), 'canvas');
     return composeCanvas(cv, {title: o.title, bg: o.bg, fg: o.fg});
   },
-  svgString() {
-    if (this.mode === 'qr') return renderQR(this.lastText, this.qrOpts(), 'svg');
+  async svgString() {
+    if (this.mode === 'qr') return this.sym() === 'QR' ? renderQR(this.lastText, this.qrOpts(), 'svg') : await render2D(this.sym(), this.lastText, this.qrOpts(), 'svg');
     const o = this.barOpts(); const svg = renderBar($('#barFmt').value, this.lastText, o, 'svg'); svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg'); return new XMLSerializer().serializeToString(svg);
   },
-  fileName(ext) { const base = (this.mode === 'qr' ? ($('#qrTitle').value.trim() || QR_TYPES[this.qrType].n) : ($('#barTitle').value.trim() || $('#barFmt').value)).replace(/[^\w\-áéíóúñ ]/gi, '').trim().replace(/\s+/g, '_') || 'codigo'; return `${base}.${ext}`; },
+  fileName(ext) { const base = (this.mode === 'qr' ? ($('#qrTitle').value.trim() || (this.sym() === 'QR' ? QR_TYPES[this.qrType].n : fmtName(this.sym()))) : ($('#barTitle').value.trim() || $('#barFmt').value)).replace(/[^\w\-áéíóúñ ]/gi, '').trim().replace(/\s+/g, '_') || 'codigo'; return `${base}.${ext}`; },
   async export(kind) {
     if (!this.lastEl) return toast('Nada que exportar', 'bad');
-    if (kind === 'svg') return download(this.fileName('svg'), new Blob([this.svgString()], {type: 'image/svg+xml'}));
-    if (kind === 'pdf') return Printer.open([{el: this.lastEl.cloneNode(true), title: this.mode === 'qr' ? $('#qrTitle').value : $('#barTitle').value, text: this.lastText, svg: this.mode === 'qr' ? this.svgString() : null}]);
+    if (kind === 'svg') return download(this.fileName('svg'), new Blob([await this.svgString()], {type: 'image/svg+xml'}));
+    if (kind === 'pdf') return Printer.open([{el: this.lastEl.cloneNode(true), title: this.mode === 'qr' ? $('#qrTitle').value : $('#barTitle').value, text: this.lastText, svg: this.mode === 'qr' ? await this.svgString() : null}]);
     const cv = await this.finalCanvas(); const blob = await canvasBlob(cv);
     if (kind === 'png') return download(this.fileName('png'), blob);
     if (kind === 'copy') { try { await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]); toast('Imagen copiada', 'ok'); } catch { copyText(this.lastText); } return; }
@@ -117,7 +121,7 @@ const Creator = {
   },
   async save() {
     if (!this.lastEl) return toast('Completa el contenido primero', 'bad');
-    const fmt = this.mode === 'qr' ? 'QR' : $('#barFmt').value;
+    const fmt = this.mode === 'qr' ? this.sym() : $('#barFmt').value;
     const style = this.mode === 'qr' ? Object.assign(this.qrOpts(), {logo: this.logo ? this.logo.src : null, type: this.qrType, vals: Object.assign({}, this.vals)}) : this.barOpts();
     const title = this.mode === 'qr' ? style.title : style.title;
     if (this.editing) {
@@ -134,7 +138,7 @@ const Creator = {
   loadText(text, fmt) {
     const p = parseContent(text, fmt);
     if (fmt && FORMATS[fmt] && !is2d(fmt) && GEN_BAR.includes(fmt)) { $$('#segCreate button')[1].click(); $('#barFmt').value = fmt; $('#barFmtHelp').textContent = FORMATS[fmt].help; $('#barVal').value = text; this.render(); return; }
-    $$('#segCreate button')[0].click();
+    $$('#segCreate button')[0].click(); $('#qrSym').value = BWIP[fmt] ? fmt : 'QR'; $('#qrSym').dispatchEvent(new Event('change'));
     const map = {url: ['url', {url: p.fields.url}], wifi: ['wifi', p.fields], vcard: ['vcard', p.fields], tel: ['tel', p.fields], email: ['email', p.fields], sms: ['sms', p.fields], geo: ['geo', p.fields], event: ['event', p.fields]};
     if (map[p.type] && p.type !== 'event') { this.vals = Object.assign({}, map[p.type][1]); if (p.type === 'wifi') this.vals.hidden = String(!!p.fields.hidden); this.selectChip(map[p.type][0]); }
     else { this.vals = {raw: text}; this.selectChip('custom'); }
@@ -143,8 +147,8 @@ const Creator = {
   loadItem(it, asEdit) {
     showView('create'); this.editing = asEdit ? it : null; this.logo = null;
     const st = it.style || {};
-    if (it.format === 'QR') {
-      $$('#segCreate button')[0].click();
+    if (is2d(it.format)) {
+      $$('#segCreate button')[0].click(); $('#qrSym').value = BWIP[it.format] ? it.format : 'QR'; $('#qrSym').dispatchEvent(new Event('change'));
       $('#qrFg').value = $('#qrFgT').value = st.fg || '#111111'; $('#qrBg').value = $('#qrBgT').value = st.bg || '#ffffff'; toggle($('#qrTrans'), !!st.trans); $('#qrSize').value = st.size || 768; $('#qrSizeV').textContent = $('#qrSize').value; $('#qrMargin').value = st.margin ?? 3; $('#qrMarginV').textContent = $('#qrMargin').value; $('#qrShape').value = st.shape || 'square'; $('#qrEcl').value = st.ecl || 'M'; $('#qrTitle').value = st.title || it.name || ''; toggle($('#qrCaption'), !!st.caption);
       if (st.logo) loadImg(st.logo).then(i => { this.logo = i; $('#qrLogoClr').classList.remove('hidden'); $('#qrLogoBtn').textContent = 'Logo guardado'; this.render(); });
       if (st.type && QR_TYPES[st.type]) { this.vals = Object.assign({}, st.vals || {}); this.selectChip(st.type); } else this.loadText(it.data, 'QR');

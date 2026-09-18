@@ -16,7 +16,8 @@ const Lib = {
     const k = it.id + '|' + it.data + '|' + it.format; if (this.thumbs.has(k)) return this.thumbs.get(k);
     let html = '';
     try {
-      if (is2d(it.format) || it.format === 'MANUAL') { const cv = renderQR(it.data.slice(0, 500), {size: 96, margin: 1, fg: (it.style || {}).fg || '#111', bg: '#fff', ecl: 'L'}); html = `<img src="${cv.toDataURL()}" width="48" height="48" alt="">`; }
+      if (BWIP[it.format]) { html = ''; if (window.bwipjs) { const cv = document.createElement('canvas'); bwipjs.toCanvas(cv, {bcid: BWIP[it.format], text: it.data.slice(0, 300), scale: 1, padding: 2}); html = `<img src="${cv.toDataURL()}" style="max-width:48px;max-height:48px" alt="">`; } else loadBwip().then(() => { this.thumbs.delete(k); if ($('#v-lib').classList.contains('on')) this.render(); }).catch(() => {}); }
+      else if (is2d(it.format) || it.format === 'MANUAL') { const cv = renderQR(it.data.slice(0, 500), {size: 96, margin: 1, fg: (it.style || {}).fg || '#111', bg: '#fff', ecl: 'L'}); html = `<img src="${cv.toDataURL()}" width="48" height="48" alt="">`; }
       else if (GEN_BAR.includes(it.format)) { const r = validateBar(it.format, it.data); if (r.ok) { const cv = renderBar(it.format, r.value, {width: 1, height: 30, margin: 2, text: false}, 'canvas'); html = `<img src="${cv.toDataURL()}" style="max-width:48px" alt="">`; } }
     } catch {}
     if (!html) html = `<span style="font-size:9px;font-weight:800;color:#555">${esc(fmtName(it.format).slice(0, 8))}</span>`;
@@ -53,7 +54,7 @@ const Lib = {
     it.uses = (it.uses || 0) + 1; saveItems();
     if (it.kind === 'scan') return Result.open(it);
     const prev = document.createElement('div'); prev.className = 'preview';
-    try { if (it.format === 'QR') { const st = it.style || {}; const cv = renderQR(it.data, Object.assign({}, st, {size: 300, logo: null})); cv.style.maxWidth = '260px'; cv.style.width = '100%'; prev.appendChild(cv); } else prev.appendChild(renderBar(it.format, it.data, Object.assign({}, it.style || {}, {rotate: 0}), 'svg')); } catch { prev.textContent = 'Vista previa no disponible'; }
+    try { if (BWIP[it.format]) { render2D(it.format, it.data, Object.assign({}, it.style || {}, {size: 300})).then(cv => { cv.style.maxWidth = '260px'; cv.style.width = '100%'; prev.appendChild(cv); }); } else if (it.format === 'QR') { const st = it.style || {}; const cv = renderQR(it.data, Object.assign({}, st, {size: 300, logo: null})); cv.style.maxWidth = '260px'; cv.style.width = '100%'; prev.appendChild(cv); } else prev.appendChild(renderBar(it.format, it.data, Object.assign({}, it.style || {}, {rotate: 0}), 'svg')); } catch { prev.textContent = 'Vista previa no disponible'; }
     openSheet(it.name || 'Código creado', `<div id="dPrev"></div>
       <div class="row" style="flex-wrap:wrap;gap:6px"><span class="badge ${is2d(it.format) ? 'qr' : 'bar'}">${esc(fmtName(it.format))}</span><span class="badge">${fmtDate(it.ts)}</span>${(it.versions || []).length ? `<span class="badge info">${it.versions.length} versiones</span>` : ''}</div>
       <div class="pre mono">${esc(it.data)}</div>
@@ -137,11 +138,11 @@ const Lib = {
     $('#selMove').onclick = async () => { const s = this.selected(); if (!s.length) return; const f = await this.pickFolder(); s.forEach(i => i.folder = f); saveItems(); this.render(); toast('Movidos', 'ok'); };
     $('#selTag').onclick = async () => { const s = this.selected(); if (!s.length) return; const t = await prompt2('Añadir etiquetas', '', 'separadas por coma', 'Añadir'); if (!t) return; const tags = t.split(',').map(x => x.trim()).filter(Boolean); s.forEach(i => i.tags = [...new Set([...(i.tags || []), ...tags])]); saveItems(); this.render(); };
     $('#selExport').onclick = () => { const s = this.selected(); if (s.length) this.csv(s); };
-    $('#selPrint').onclick = () => { const s = this.selected(); if (!s.length) return; Printer.open(s.map(i => ({el: this.renderEl(i), title: i.name, text: i.data}))); };
+    $('#selPrint').onclick = async () => { const s = this.selected(); if (!s.length) return; if (s.some(i => BWIP[i.format])) await loadBwip().catch(() => {}); Printer.open(s.map(i => ({el: this.renderEl(i), title: i.name, text: i.data}))); };
     $('#trashEmpty').onclick = async () => { if (await ask('Vaciar papelera', 'Se eliminarán definitivamente todos los elementos de la papelera.', 'Vaciar', true)) { S.items = S.items.filter(i => !i.deleted); saveItems(); this.render(); } };
     $('#libBackup').onclick = () => this.backup(); $('#libRestore').onclick = () => $('#fileBackup').click(); $('#fileBackup').onchange = e => { if (e.target.files[0]) this.restore(e.target.files[0]); e.target.value = ''; };
     $('#libCsv').onclick = () => this.csv(S.items.filter(i => !i.deleted)); $('#libDups').onclick = () => this.dups();
   },
-  renderEl(i) { try { if (is2d(i.format) || i.format === 'MANUAL') return renderQR(i.data, Object.assign({size: 400, margin: 2}, i.style || {}, {logo: null, size: 400})); const r = validateBar(i.format, i.data); return renderBar(i.format, r.ok ? r.value : i.data, Object.assign({}, i.style || {}, {rotate: 0}), 'svg'); } catch { return renderQR(i.data, {size: 400}); } }
+  renderEl(i) { try { if (BWIP[i.format] && window.bwipjs) { const cv = document.createElement('canvas'); bwipjs.toCanvas(cv, {bcid: BWIP[i.format], text: i.data, scale: 3, padding: 6}); return cv; } if (is2d(i.format) || i.format === 'MANUAL') return renderQR(i.data, Object.assign({size: 400, margin: 2}, i.style || {}, {logo: null, size: 400})); const r = validateBar(i.format, i.data); return renderBar(i.format, r.ok ? r.value : i.data, Object.assign({}, i.style || {}, {rotate: 0}), 'svg'); } catch { return renderQR(i.data, {size: 400}); } }
 };
 Lib.init();
