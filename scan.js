@@ -117,7 +117,7 @@ $('#video').addEventListener('click', e => { const r = e.currentTarget.getBoundi
 $('#btnPickImg').onclick = () => $('#fileImg').click();
 $('#fileImg').onchange = e => { Scanner.fromFiles(Array.from(e.target.files)); e.target.value = ''; };
 $('#btnPaste').onclick = () => Scanner.fromClipboard();
-$('#btnManual').onclick = async () => { const t = await prompt2('Ingresar contenido manualmente', '', 'Texto, número o URL', 'Interpretar'); if (t) { const it = Lib.addScan('MANUAL', t.trim()); Scanner.session.unshift(it); Scanner.renderSession(); Result.open(it); } };
+$('#btnManual').onclick = async () => { let pre = ''; try { pre = (await navigator.clipboard.readText()).trim().slice(0, 500); } catch {} const t = await prompt2('Ingresar contenido manualmente', pre, 'Texto, número o URL', 'Interpretar'); if (t) { const it = Lib.addScan('MANUAL', t.trim()); Scanner.session.unshift(it); Scanner.renderSession(); Result.open(it); } };
 
 // ---------- resultado y acciones ----------
 const Result = {
@@ -147,6 +147,7 @@ const Result = {
     if (p.type === 'sms') acts.push(A('aSms', 'Redactar SMS', f.to, I.sms));
     if (p.type === 'geo') acts.push(A('aGeo', 'Abrir en Mapas', `${f.lat}, ${f.lon}`, I.map));
     if (p.type === 'app') acts.push(A('aApp', 'Abrir en la app', f.scheme, I.link));
+    if (p.type === 'product' || (!is2d(item.format) && /^\d{8,14}$/.test(item.data))) acts.push(A('aInfo', 'Obtener nombre del producto', 'Consulta Open Food/Beauty/Products Facts y lo copia a Nombre', I.search));
     if (p.type === 'product') acts.push(A('aLookup', 'Buscar producto en internet', 'Requiere conexión · servicio elegido en Ajustes', I.search));
     if (['text', 'product'].includes(p.type) || is2d(item.format)) acts.push(A('aSearch', 'Buscar en internet', 'Requiere conexión', I.search));
     acts.push(A('aCopy', 'Copiar contenido', 'Sin interpretarlo', I.copy), A('aShare', 'Compartir', '', I.share), A('aNew', 'Crear código a partir del contenido', '', I.qr));
@@ -156,8 +157,9 @@ const Result = {
       ${cdHtml}${info}${hex}
       <div class="list">${acts.join('')}</div>
       <div class="card"><h2>Biblioteca</h2>
-        <label class="f">Nombre</label><input id="rName" value="${esc(item.name || '')}" placeholder="Nombre descriptivo">
-        <label class="f">Nota</label><textarea id="rNote" placeholder="Nota personal" style="min-height:60px">${esc(item.note || '')}</textarea>
+        <div id="rInfo"></div>
+        <label class="f">Nombre</label><div class="row"><input id="rName" class="grow" value="${esc(item.name || '')}" placeholder="Nombre descriptivo"><button class="btn sm" id="rPasteN" title="Pegar">Pegar</button></div>
+        <label class="f">Nota</label><div class="row" style="align-items:stretch"><textarea id="rNote" class="grow" placeholder="Nota personal" style="min-height:60px">${esc(item.note || '')}</textarea><button class="btn sm" id="rPasteT" title="Pegar">Pegar</button></div>
         <label class="f">Etiquetas</label><input id="rTags" value="${esc((item.tags || []).join(', '))}" placeholder="separadas por coma">
         <label class="f">Carpeta</label><select id="rFolder"><option value="">Sin carpeta</option>${S.folders.map(x => `<option ${item.folder === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
         <div class="btns" style="margin-top:10px"><button class="btn p" id="rSave">${item.saved ? 'Actualizar' : 'Guardar en biblioteca'}</button><button class="btn" id="rFav">${item.fav ? '★ Favorito' : '☆ Favorito'}</button></div>
@@ -177,6 +179,20 @@ const Result = {
       $('#aApp') && ($('#aApp').onclick = () => go('Abrir en la app', 'Solo continúa si reconoces la aplicación de destino.', f.url, f.url, 'Abrir app'));
       $('#aLookup') && ($('#aLookup').onclick = () => go('Buscar producto', 'Se enviará el identificador a un servicio externo:', item.data, S.settings.productLookup + q(item.data), 'Buscar producto'));
       $('#aSearch') && ($('#aSearch').onclick = () => go('Buscar en internet', 'Se enviará el contenido al buscador elegido en Ajustes:', item.data.slice(0, 120), S.settings.searchEngine + q(item.data), 'Buscar'));
+      const paste = async el => { try { const t = (await navigator.clipboard.readText()).trim(); if (!t) return toast('Portapapeles vacío', 'bad'); el.value = el.value && el.tagName === 'TEXTAREA' ? el.value + '\n' + t : t; el.focus(); } catch { toast('Sin acceso al portapapeles: mantén pulsado el campo y elige Pegar', 'bad'); } };
+      $('#rPasteN').onclick = () => paste($('#rName')); $('#rPasteT').onclick = () => paste($('#rNote'));
+      $('#aInfo') && ($('#aInfo').onclick = async () => {
+        if (!navigator.onLine) return toast('Sin conexión a internet', 'bad');
+        if (!await confirmDlg({title: 'Consultar producto', text: 'Se enviará solo el número del código a las bases públicas Open Food Facts / Open Beauty Facts / Open Products Facts (sin cuenta ni rastreo). ¿Continuar?', ok: 'Consultar'})) return;
+        const box = $('#rInfo'); box.innerHTML = '<div class="msg info">Consultando…</div>';
+        const pr = await lookupProduct(item.data); logAction('Consulta producto', item.data);
+        if (!pr) { box.innerHTML = '<div class="msg warn">No está en las bases públicas. Usa "Buscar producto en internet", copia el nombre y pulsa <b>Pegar</b> junto a Nombre.</div>'; return; }
+        const title = [pr.name, pr.brand].filter(Boolean).join(' · ');
+        box.innerHTML = `<div class="msg ok" style="display:flex;gap:10px;align-items:center">${pr.img ? `<img src="${esc(pr.img)}" alt="" style="width:56px;height:56px;object-fit:contain;background:#fff;border-radius:8px;flex:none">` : ''}<div style="flex:1;min-width:0"><b>${esc(pr.name || '(sin nombre)')}</b><br>${esc([pr.brand, pr.qty, pr.cat].filter(Boolean).join(' · '))}<br><span class="note">Fuente: ${esc(pr.source)}</span></div></div><div class="btns" style="margin-top:8px"><button class="btn p sm" id="rUse">Usar como nombre y nota</button><button class="btn sm" id="rUseN">Solo nombre</button></div>`;
+        const useName = () => { $('#rName').value = title || $('#rName').value; };
+        $('#rUseN').onclick = useName;
+        $('#rUse').onclick = () => { useName(); const extra = [pr.qty && 'Cantidad: ' + pr.qty, pr.cat && 'Categoría: ' + pr.cat, 'Fuente: ' + pr.source].filter(Boolean).join('\n'); $('#rNote').value = $('#rNote').value ? $('#rNote').value + '\n' + extra : extra; item.product = pr; toast('Datos añadidos. Pulsa Guardar.', 'ok'); };
+      });
       $('#aCopy').onclick = () => copyText(item.data);
       $('#aShare').onclick = async () => { if (!await shareFiles(null, item.data, 'Código')) copyText(item.data); };
       $('#aNew').onclick = () => { closeSheet(); showView('create'); Creator.loadText(item.data, item.format); };

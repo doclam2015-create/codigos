@@ -249,3 +249,19 @@ async function render2D(fmt, text, o = {}, target = 'canvas') {
   if (!o.trans) { ctx.fillStyle = o.bg || '#fff'; ctx.fillRect(0, 0, cv.width, cv.height); }
   ctx.drawImage(tmp, 0, 0, cv.width, cv.height); cv.dataset.modules = tmp.width; return cv;
 }
+
+// ---------- consulta de producto por código de barras (Open *Facts, CORS abierto, sin clave) ----------
+const PRODUCT_DBS = [['Open Food Facts', 'https://world.openfoodfacts.org'], ['Open Beauty Facts', 'https://world.openbeautyfacts.org'], ['Open Products Facts', 'https://world.openproductsfacts.org'], ['Open Pet Food Facts', 'https://world.openpetfoodfacts.org']];
+async function lookupProduct(code) {
+  const fields = 'product_name,product_name_es,brands,quantity,categories,image_small_url,generic_name,generic_name_es';
+  for (const [name, base] of PRODUCT_DBS) {
+    try {
+      const r = await fetch(`${base}/api/v2/product/${encodeURIComponent(code)}.json?fields=${fields}`, {headers: {'User-Agent': 'CodigosPWA/1.1 (uso personal)'}});
+      if (!r.ok) continue; const j = await r.json(); if (j.status !== 1 || !j.product) continue;
+      const pr = j.product; const n = pr.product_name_es || pr.product_name || pr.generic_name_es || pr.generic_name || '';
+      if (!n && !pr.brands) continue;
+      return {source: name, name: n, brand: pr.brands || '', qty: pr.quantity || '', cat: (pr.categories || '').split(',').slice(-1)[0].trim(), img: pr.image_small_url || ''};
+    } catch {}
+  }
+  return null;
+}
